@@ -1,0 +1,23 @@
+{
+    "expo": {
+        "name": "HeightMaxxing",
+        "slug": "HeightMaxxing",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "userInterfaceStyle": "dark",
+        "backgroundColor": "#0E1420",
+        "splash": {
+            "backgroundColor": "#0E1420"
+        },
+        "ios": {
+            "supportsTablet": true,
+            "bundleIdentifier": "com.yourcompany.HeightMaxxing"
+        },
+        "android": {
+            "package": "com.yourcompany.HeightMaxxing",
+            "adaptiveIcon": {
+                "backgroundColor": "#0E1420"
+            }
+        }
+    }
+}
