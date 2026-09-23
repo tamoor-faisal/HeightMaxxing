@@ -28,4 +28,3 @@ function TabIcon({ label }: { label: string }) {
     // in an icon font just for this scaffold.
     return <Text style={{ fontSize: 11 }}>{label}</Text>;
 }
-}
