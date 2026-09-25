@@ -49,6 +49,26 @@ press `i` / `a` for a simulator/emulator.
 - `src/screens/` — Home, Progress, Activities, Meal & Sports, Tip, Account
 - `App.tsx` — navigation + the tab-press interception that gates Meal & Sports
 
+## Sign-up & profile (added)
+
+- `src/screens/SignUpScreen.tsx` — collects email/password + current height,
+  age, gender, and optional ethnicity
+- `src/utils/heightEstimate.ts` — the (placeholder) formula that turns that
+  profile into free/pro estimates — read the comments at the top before
+  treating its output as real
+- `src/services/auth.ts` — stub only, includes a suggested Postgres schema
+  and the privacy/compliance notes for storing this kind of data
+- The log now starts **empty**; the ring's "current" figure comes from the
+  profile instead, and only grows into a log once the user taps
+  "Log a new measurement" on the Progress screen
+- `App.tsx` now shows `SignUpScreen` until a profile exists — no separate
+  login screen yet, that's still open work
+
+**Not yet handled, and worth doing before real users hit this:**
+age-gating / parental consent for under-13 (US) or under-16 (EU/UK) users,
+a real backend, and a privacy policy that specifically covers the
+ethnicity field and health data more broadly.
+
 ## Before this can actually ship
 
 1. **Real purchases.** `choosePlan()` in `AppContext.tsx` just flips a

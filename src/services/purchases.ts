@@ -27,21 +27,21 @@
 export type PlanId = 'onetime' | 'monthly';
 
 export type PurchaseResult = {
-    success: boolean;
-    planId: PlanId;
-    error?: string;
-}:
+  success: boolean;
+  planId: PlanId;
+  error?: string;
+};
 
 // Replace this with a real call into RevenueCat / react-native-iap.
 export async function purchasePlan(planId: PlanId): Promise<PurchaseResult> {
-    console.warn(
-        '[purchases] purchasePlan() is a stub. Wire this up to RevenueCat or ' +
-        'react-native-iap before shipping -- see comments in this file'
-    );
-    return { succcess: true, planId};
+  console.warn(
+    '[purchases] purchasePlan() is a stub. Wire this up to RevenueCat or ' +
+      'react-native-iap before shipping -- see comments in this file.'
+  );
+  return { success: true, planId };
 }
 
 export async function restorePurchases(): Promise<boolean> {
-    console.warn('[purchases] restorePurchases() is a stub.');
-    return false;
+  console.warn('[purchases] restorePurchases() is a stub.');
+  return false;
 }

@@ -13,6 +13,7 @@ export const colors = {
   blue: '#4A9DE8',
   blueDim: 'rgba(74,157,232,0.15)',
   border: 'rgba(255,255,255,0.08)',
+  danger: '#E8674B',
 };
 
 export const fonts = {
