@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import { Unit } from '../utils/height';
 import { UserProfile, estimateHeights } from '../utils/heightEstimate';
-import { AuthUser, signUp as signUpService } from '../services/auth';
+import { AuthUser, getProfile, signIn as signInService, signUp as signUpService } from '../services/auth';
 import { insertHeightLog } from '../services/db';
 
 export type LogEntry = { date: string; cm: number };
@@ -22,6 +22,7 @@ type AppState = {
   profile: UserProfile | null;
   isOnboarded: boolean;
   completeSignUp: (email: string, password: string, profile: UserProfile) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
 
   heights: Heights;
   log: LogEntry[];
@@ -66,6 +67,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setHeights({ actual: result.profile.currentHeightCm, ...estimates });
     // Intentionally NOT auto-adding a log entry here — log starts empty
     // and only grows when the user explicitly logs a measurement.
+  };
+
+  const signIn = async (email: string, password: string) => {
+    const signedInUser = await signInService(email, password);
+    const signedInProfile = await getProfile(signedInUser.id);
+    setUser(signedInUser);
+    setProfile(signedInProfile);
+    const estimates = estimateHeights(signedInProfile);
+    setHeights({ actual: signedInProfile.currentHeightCm, ...estimates });
   };
 
    const addLogEntry = (cm: number, date: string) => {
@@ -116,6 +126,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       profile,
       isOnboarded: !!profile,
       completeSignUp,
+      signIn,
       heights,
       log,
       addLogEntry,

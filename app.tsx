@@ -12,6 +12,8 @@ import { colors } from './src/theme';
 import PaywallSheet from './src/components/PaywallSheet';
 
 import SignUpScreen from './src/screens/SignUpScreen';
+import SignInScreen from './src/screens/SignInScreen';
+import AuthLandingScreen from './src/screens/AuthLandingScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProgressScreen from './src/screens/ProgressScreen';
 import ActivitiesScreen from './src/screens/ActivitiesScreen';
@@ -32,15 +34,19 @@ function TabIcon({ label }: { label: string }) {
 
 function Navigator() {
   const { isPro, isOnboarded, requestProGate } = useApp();
+  const [authScreen, setAuthScreen] = React.useState<'landing' | 'signup' | 'signin'>('landing');
 
   if (!isOnboarded) {
-    // No account/profile yet — show sign-up instead of the tab navigator.
-    // Still wrapped in NavigationContainer so styling/theme stays
-    // consistent if you later add more pre-auth screens (login, forgot
-    // password, etc.) via a stack navigator here.
     return (
       <NavigationContainer>
-        <SignUpScreen />
+        {authScreen === 'landing' && (
+          <AuthLandingScreen
+            onSignUp={() => setAuthScreen('signup')}
+            onSignIn={() => setAuthScreen('signin')}
+          />
+        )}
+        {authScreen === 'signup' && <SignUpScreen onBack={() => setAuthScreen('landing')} />}
+        {authScreen === 'signin' && <SignInScreen onBack={() => setAuthScreen('landing')} />}
       </NavigationContainer>
     );
   }

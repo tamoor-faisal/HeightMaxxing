@@ -61,8 +61,8 @@ press `i` / `a` for a simulator/emulator.
 - The log now starts **empty**; the ring's "current" figure comes from the
   profile instead, and only grows into a log once the user taps
   "Log a new measurement" on the Progress screen
-- `App.tsx` now shows `SignUpScreen` until a profile exists — no separate
-  login screen yet, that's still open work
+- `App.tsx` now shows an account menu with Sign Up and Sign In until a profile
+  exists. Existing users can sign in and load their saved profile.
 
 **Not yet handled, and worth doing before real users hit this:**
 age-gating / parental consent for under-13 (US) or under-16 (EU/UK) users,

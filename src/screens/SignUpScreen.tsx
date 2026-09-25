@@ -19,7 +19,7 @@ const GENDERS: { id: Gender; label: string }[] = [
 // that; it's flagged here so it doesn't get missed.
 const MIN_AGE_WITHOUT_PARENTAL_CONSENT = 13;
 
-export default function SignUpScreen() {
+export default function SignUpScreen({ onBack }: { onBack: () => void }) {
   const { completeSignUp } = useApp();
 
   const [email, setEmail] = useState('');
@@ -60,7 +60,7 @@ export default function SignUpScreen() {
         ethnicity: ethnicity.trim() ? ethnicity.trim() : undefined,
       });
     } catch (e) {
-      setError('Something went wrong creating your account. Please try again.');
+      setError(getSignUpErrorMessage(e));
     } finally {
       setSubmitting(false);
     }
@@ -69,6 +69,9 @@ export default function SignUpScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll}>
+        <Pressable onPress={onBack} style={styles.backButton}>
+          <Text style={styles.backText}>‹ Back</Text>
+        </Pressable>
         <Text style={styles.title}>Create your account</Text>
         <Text style={styles.subtitle}>
           We use this to estimate your height potential. Everything except ethnicity is required.
@@ -161,6 +164,26 @@ export default function SignUpScreen() {
   );
 }
 
+function getSignUpErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes('user already registered')) {
+    return 'An account with this email already exists. Please use Sign in instead.';
+  }
+  if (normalized.includes('password')) {
+    return 'Your password must be at least 6 characters long.';
+  }
+  if (normalized.includes('profile could not be saved')) {
+    return 'Your account was created, but its profile could not be saved. Check the profiles table permissions in Supabase.';
+  }
+  if (normalized.includes('invalid api key') || normalized.includes('network')) {
+    return 'The app cannot connect to its account service. Check the Supabase URL and publishable key.';
+  }
+
+  return message || 'We could not create your account. Check your details and try again.';
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
@@ -173,6 +196,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { padding: 20, paddingTop: 40, paddingBottom: 60 },
+  backButton: { marginBottom: 22 },
+  backText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.muted },
   title: { fontFamily: fonts.display, fontSize: 24, color: colors.text, marginBottom: 6 },
   subtitle: { fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, marginBottom: 24, lineHeight: 18 },
   field: { marginBottom: 16 },
