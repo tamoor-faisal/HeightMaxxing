@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 import { Unit } from '../utils/height';
 import { UserProfile, estimateHeights } from '../utils/heightEstimate';
 import { AuthUser, signUp as signUpService } from '../services/auth';
+import { insertHeightLog } from '../services/db';
 
 export type LogEntry = { date: string; cm: number };
 export type PaywallSource = 'pro-height' | 'mealsports' | null;
@@ -67,9 +68,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // and only grows when the user explicitly logs a measurement.
   };
 
-  const addLogEntry = (cm: number, date: string) => {
+   const addLogEntry = (cm: number, date: string) => {
     setLog((prev) => [...prev, { date, cm }]);
     setHeights((prev) => ({ ...prev, actual: cm }));
+
+    // Write-through to the database. Updates the UI immediately (above)
+    // rather than waiting on the network — if this fails, the entry still
+    // shows locally for this session, but won't have persisted. Good
+    // enough for now; a production version would want retry/error UI.
+    if (user) {
+      insertHeightLog(user.id, cm).catch((err) => {
+        console.warn('[AppContext] Failed to save height log to database:', err);
+      });
+    }
   };
 
   const openPaywall = (source: PaywallSource) => {
