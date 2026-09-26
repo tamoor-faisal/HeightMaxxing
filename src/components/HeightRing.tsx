@@ -28,10 +28,10 @@ export default function HeightRing({ actualCm, freeCm, proCm, size = 266 }: Prop
     const angle = frac * 2 * Math.PI - Math.PI / 2;
     const x = cx + r * Math.cos(angle);
     const y = cy + r * Math.sin(angle);
-    let color: string;
+    let color = colors.surface3;
     if (frac <= actualFrac) color = colors.blue;
     else if (frac <= freeFrac) color = colors.green;
-    else color = colors.gold;
+    else if (frac <= 1 && proCm > freeCm) color = colors.gold;
     dots.push(<Circle key={i} cx={x} cy={y} r={dotR} fill={color} />);
   }
 

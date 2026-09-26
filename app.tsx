@@ -1,8 +1,9 @@
 import 'react-native-gesture-handler';
 import React, { useCallback } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, StatusBar, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -12,6 +13,7 @@ import { colors } from './src/theme';
 import PaywallSheet from './src/components/PaywallSheet';
 
 import SignUpScreen from './src/screens/SignUpScreen';
+import SignUpJourneyScreen from './src/screens/SignUpJourneyScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import AuthLandingScreen from './src/screens/AuthLandingScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -25,18 +27,39 @@ SplashScreen.preventAutoHideAsync();
 
 const Tab = createBottomTabNavigator();
 
-function TabIcon({ label }: { label: string }) {
+function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   // Swap these for a real icon set (e.g. @expo/vector-icons) when you move
   // past the prototype stage -- kept as plain text here to avoid pulling
   // in an icon font just for this scaffold.
-  return <Text style={{ fontSize: 11 }}>{label}</Text>;
+  return (
+    <View style={[styles.tabIcon, focused && styles.tabIconFocused]}>
+      <Text style={styles.tabIconText}>{label}</Text>
+    </View>
+  );
 }
 
 function Navigator() {
-  const { isPro, isOnboarded, requestProGate } = useApp();
+  const { isPro, isOnboarded, user, signupStage, requestProGate } = useApp();
+  const insets = useSafeAreaInsets();
   const [authScreen, setAuthScreen] = React.useState<'landing' | 'signup' | 'signin'>('landing');
 
+  if (signupStage) {
+    return (
+      <NavigationContainer>
+        <SignUpJourneyScreen />
+      </NavigationContainer>
+    );
+  }
+
   if (!isOnboarded) {
+    if (user) {
+      return (
+        <NavigationContainer>
+          <SignUpScreen onBack={() => undefined} profileOnly />
+        </NavigationContainer>
+      );
+    }
+
     return (
       <NavigationContainer>
         {authScreen === 'landing' && (
@@ -76,19 +99,32 @@ function Navigator() {
           headerShown: false,
           tabBarActiveTintColor: colors.text,
           tabBarInactiveTintColor: colors.muted2,
-          tabBarStyle: { backgroundColor: colors.bg, borderTopColor: colors.border },
+          tabBarStyle: {
+            height: 76 + insets.bottom,
+            paddingTop: 8,
+            paddingBottom: Math.max(insets.bottom, 8),
+            paddingHorizontal: 8,
+            backgroundColor: colors.bg,
+            borderTopColor: colors.border,
+          },
+          tabBarItemStyle: { flex: 1, marginHorizontal: 3 },
+          tabBarLabelStyle: { fontSize: 11, marginTop: 3 },
         }}
       >
-        <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarIcon: () => <TabIcon label="🏠" /> }} />
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{ tabBarIcon: ({ focused }) => <TabIcon label="🏠" focused={focused} /> }}
+        />
         <Tab.Screen
           name="Activities"
           component={ActivitiesScreen}
-          options={{ tabBarIcon: () => <TabIcon label="🏃" /> }}
+          options={{ tabBarIcon: ({ focused }) => <TabIcon label="🏃" focused={focused} /> }}
         />
         <Tab.Screen
           name="Meal"
           component={MealSportsScreen}
-          options={{ tabBarIcon: () => <TabIcon label="🍽" /> }}
+          options={{ tabBarIcon: ({ focused }) => <TabIcon label="🍽" focused={focused} /> }}
           listeners={{
             tabPress: (e) => {
               // Intercept the tab press itself -- same pattern as the
@@ -101,12 +137,23 @@ function Navigator() {
             },
           }}
         />
-        <Tab.Screen name="Tip" component={TipScreen} options={{ tabBarIcon: () => <TabIcon label="✨" /> }} />
-        <Tab.Screen name="Account" component={AccountScreen} options={{ tabBarIcon: () => <TabIcon label="👤" /> }} />
+        <Tab.Screen
+          name="Tip"
+          component={TipScreen}
+          options={{ tabBarIcon: ({ focused }) => <TabIcon label="✨" focused={focused} /> }}
+        />
+        <Tab.Screen
+          name="Account"
+          component={AccountScreen}
+          options={{ tabBarIcon: ({ focused }) => <TabIcon label="👤" focused={focused} /> }}
+        />
         <Tab.Screen
           name="Progress"
           component={ProgressScreen}
-          options={{ tabBarButton: () => null }} // reachable via navigation.navigate, not shown as a tab
+          options={{
+            tabBarButton: () => null,
+            tabBarItemStyle: { display: 'none' },
+          }} // reachable via navigation.navigate, not shown as a tab
         />
       </Tab.Navigator>
       <PaywallSheet />
@@ -131,10 +178,32 @@ export default function App() {
   if (!fontsLoaded) return null;
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayout}>
-      <AppProvider>
-        <Navigator />
-      </AppProvider>
-    </View>
+    <SafeAreaProvider>
+      <SafeAreaView edges={['top']} style={styles.safeArea} onLayout={onLayout}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+        <AppProvider>
+          <Navigator />
+        </AppProvider>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.bg },
+  tabIcon: {
+    width: 42,
+    height: 34,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  tabIconFocused: {
+    borderColor: colors.gold,
+    backgroundColor: colors.goldDim,
+  },
+  tabIconText: { fontSize: 16 },
+});

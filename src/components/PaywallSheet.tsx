@@ -4,13 +4,13 @@ import { colors, radii, fonts } from '../theme';
 import { useApp } from '../state/AppContext';
 
 const BENEFITS = [
-  'Full pro height potential estimate',
-  'Meal & sports plan tab',
-  'Unlimited progress history',
+  'Meal & Sports menu access',
+  'Nutrition and activity ideas',
+  'Same family-height reference as the free version',
 ];
 
 export default function PaywallSheet() {
-  const { paywallVisible, closePaywall, choosePlan } = useApp();
+  const { paywallVisible, closePaywall } = useApp();
 
   return (
     <Modal visible={paywallVisible} transparent animationType="slide" onRequestClose={closePaywall}>
@@ -23,7 +23,7 @@ export default function PaywallSheet() {
 
           <Text style={styles.title}>Unlock Pro</Text>
           <Text style={styles.subtitle}>
-            Get your full height potential estimate, plus meal and sports guidance built around it.
+            Pro adds the Meal & Sports menu. It does not change your family-height reference or promise extra height.
           </Text>
 
           {BENEFITS.map((b) => (
@@ -33,10 +33,7 @@ export default function PaywallSheet() {
             </View>
           ))}
 
-          <Pressable
-            style={[styles.plan, styles.planBest]}
-            onPress={() => choosePlan('onetime')}
-          >
+          <View style={[styles.plan, styles.planBest]}>
             <View>
               <View style={styles.planTitleRow}>
                 <Text style={styles.planTitle}>One-time</Text>
@@ -44,20 +41,23 @@ export default function PaywallSheet() {
                   <Text style={styles.tagTxt}>BEST VALUE</Text>
                 </View>
               </View>
-              <Text style={styles.planSub}>Pay once, pro forever</Text>
+              <Text style={styles.planSub}>Payment setup coming soon</Text>
             </View>
             <Text style={styles.planPrice}>$200</Text>
-          </Pressable>
+          </View>
 
-          <Pressable style={styles.plan} onPress={() => choosePlan('monthly')}>
+          <View style={styles.plan}>
             <View>
               <Text style={styles.planTitle}>Monthly</Text>
-              <Text style={styles.planSub}>Cancel anytime</Text>
+              <Text style={styles.planSub}>Payment setup coming soon</Text>
             </View>
             <Text style={styles.planPrice}>
               $50<Text style={styles.perMo}>/mo</Text>
             </Text>
-          </Pressable>
+          </View>
+          <Text style={styles.paymentNote}>
+            In-app purchases are not connected in this preview. No payment can currently be taken.
+          </Text>
         </View>
       </View>
     </Modal>
@@ -101,4 +101,5 @@ const styles = StyleSheet.create({
   tagTxt: { fontFamily: fonts.bodyBold, fontSize: 9.5, color: colors.gold },
   planPrice: { fontFamily: fonts.display, fontSize: 16, color: colors.text },
   perMo: { fontFamily: fonts.body, fontSize: 11, color: colors.muted },
+  paymentNote: { fontFamily: fonts.body, fontSize: 11, color: colors.muted2, marginTop: 14, lineHeight: 16 },
 });

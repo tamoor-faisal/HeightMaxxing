@@ -19,46 +19,87 @@ const GENDERS: { id: Gender; label: string }[] = [
 // that; it's flagged here so it doesn't get missed.
 const MIN_AGE_WITHOUT_PARENTAL_CONSENT = 13;
 
-export default function SignUpScreen({ onBack }: { onBack: () => void }) {
-  const { completeSignUp } = useApp();
+export default function SignUpScreen({
+  onBack,
+  profileOnly = false,
+}: {
+  onBack: () => void;
+  profileOnly?: boolean;
+}) {
+  const { completeSignUp, completeProfile } = useApp();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [heightCm, setHeightCm] = useState('');
+  const [motherHeightCm, setMotherHeightCm] = useState('');
+  const [fatherHeightCm, setFatherHeightCm] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
   const [ethnicity, setEthnicity] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = email.trim() && password.trim() && heightCm && age && gender && !submitting;
+  const canSubmit = Boolean(
+    (profileOnly || (email.trim() && password.trim())) &&
+      heightCm &&
+      age &&
+      motherHeightCm &&
+      fatherHeightCm &&
+      gender &&
+      !submitting
+  );
 
   const onSubmit = async () => {
     setError(null);
     const ageNum = parseInt(age, 10);
     const heightNum = parseFloat(heightCm);
+    const motherHeightNum = parseFloat(motherHeightCm);
+    const fatherHeightNum = parseFloat(fatherHeightCm);
 
-    if (Number.isNaN(ageNum) || Number.isNaN(heightNum) || !gender) {
-      setError('Please fill in height, age, and gender.');
+    if (
+      Number.isNaN(ageNum) ||
+      Number.isNaN(heightNum) ||
+      Number.isNaN(motherHeightNum) ||
+      Number.isNaN(fatherHeightNum) ||
+      !gender
+    ) {
+      setError('Please fill in your height, age, sex selection, and both biological parents’ heights.');
       return;
     }
     if (ageNum < MIN_AGE_WITHOUT_PARENTAL_CONSENT) {
-      // See TODO above — this just blocks for now rather than actually
-      // routing to a parental-consent flow, which doesn't exist yet.
       setError(
         `Sign-up for under-${MIN_AGE_WITHOUT_PARENTAL_CONSENT}s needs a parental consent flow that isn't built yet.`
       );
       return;
     }
+    if (
+      ageNum > 100 ||
+      heightNum < 50 ||
+      heightNum > 250 ||
+      motherHeightNum < 50 ||
+      motherHeightNum > 250 ||
+      fatherHeightNum < 50 ||
+      fatherHeightNum > 250
+    ) {
+      setError('Please check your age and height values. Heights must be between 50 and 250 cm.');
+      return;
+    }
 
     setSubmitting(true);
     try {
-      await completeSignUp(email.trim(), password, {
+      const profile = {
         currentHeightCm: heightNum,
         ageYears: ageNum,
         gender,
+        motherHeightCm: motherHeightNum,
+        fatherHeightCm: fatherHeightNum,
         ethnicity: ethnicity.trim() ? ethnicity.trim() : undefined,
-      });
+      };
+      if (profileOnly) {
+        await completeProfile(profile);
+      } else {
+        await completeSignUp(email.trim(), password, profile);
+      }
     } catch (e) {
       setError(getSignUpErrorMessage(e));
     } finally {
@@ -69,36 +110,44 @@ export default function SignUpScreen({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Pressable onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backText}>‹ Back</Text>
-        </Pressable>
-        <Text style={styles.title}>Create your account</Text>
+        {!profileOnly && (
+          <Pressable onPress={onBack} style={styles.backButton}>
+            <Text style={styles.backText}>‹ Back</Text>
+          </Pressable>
+        )}
+        <Text style={styles.title}>{profileOnly ? 'Finish your profile' : 'Create your account'}</Text>
         <Text style={styles.subtitle}>
-          We use this to estimate your height potential. Everything except ethnicity is required.
+          {profileOnly
+            ? 'Your account is signed in, but it has no saved profile yet. Add these details to continue.'
+            : 'We use your details and biological parents’ heights to show a rough family-height reference range. This is not a personal growth prediction.'}
         </Text>
 
-        <Field label="Email">
-          <TextInput
-            style={styles.input}
-            placeholder="you@example.com"
-            placeholderTextColor={colors.muted2}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-        </Field>
+        {!profileOnly && (
+          <Field label="Email">
+            <TextInput
+              style={styles.input}
+              placeholder="you@example.com"
+              placeholderTextColor={colors.muted2}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+            />
+          </Field>
+        )}
 
-        <Field label="Password">
-          <TextInput
-            style={styles.input}
-            placeholder="At least 8 characters"
-            placeholderTextColor={colors.muted2}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-        </Field>
+        {!profileOnly && (
+          <Field label="Password">
+            <TextInput
+              style={styles.input}
+              placeholder="At least 8 characters"
+              placeholderTextColor={colors.muted2}
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+          </Field>
+        )}
 
         <Field label="Current height (cm)">
           <TextInput
@@ -122,7 +171,7 @@ export default function SignUpScreen({ onBack }: { onBack: () => void }) {
           />
         </Field>
 
-        <Field label="Gender">
+        <Field label="Sex used for family-height reference">
           <View style={styles.chipRow}>
             {GENDERS.map((g) => (
               <Pressable
@@ -135,6 +184,37 @@ export default function SignUpScreen({ onBack }: { onBack: () => void }) {
             ))}
           </View>
         </Field>
+        <Text style={styles.helpTxt}>
+          “Other / prefer not to say” uses the parents’ average without a sex adjustment; that result
+          is only a simple family-height midpoint.
+        </Text>
+
+        <Field label="Biological mother’s height (cm)">
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 165"
+            placeholderTextColor={colors.muted2}
+            keyboardType="decimal-pad"
+            value={motherHeightCm}
+            onChangeText={setMotherHeightCm}
+          />
+        </Field>
+
+        <Field label="Biological father’s height (cm)">
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 178"
+            placeholderTextColor={colors.muted2}
+            keyboardType="decimal-pad"
+            value={fatherHeightCm}
+            onChangeText={setFatherHeightCm}
+          />
+        </Field>
+        <Text style={styles.helpTxt}>
+          The reference uses parent heights and an illustrative range, not a validated prediction
+          interval. It does not predict your adult height or account for weight, health, or future
+          growth.
+        </Text>
 
         <Field label="Ethnicity (optional)">
           <TextInput
@@ -145,8 +225,8 @@ export default function SignUpScreen({ onBack }: { onBack: () => void }) {
             onChangeText={setEthnicity}
           />
           <Text style={styles.helpTxt}>
-            Only used to refine your estimate if you choose to share it. See our privacy policy for
-            how this is stored and used.
+            Optional. It is saved with your profile but is not used in the family-height reference.
+            See our privacy policy for how this is stored.
           </Text>
         </Field>
 
@@ -157,7 +237,9 @@ export default function SignUpScreen({ onBack }: { onBack: () => void }) {
           onPress={onSubmit}
           disabled={!canSubmit}
         >
-          <Text style={styles.submitTxt}>{submitting ? 'Creating account…' : 'Create account'}</Text>
+          <Text style={styles.submitTxt}>
+            {submitting ? (profileOnly ? 'Saving profile…' : 'Creating account…') : profileOnly ? 'Save profile' : 'Create account'}
+          </Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -175,7 +257,14 @@ function getSignUpErrorMessage(error: unknown): string {
     return 'Your password must be at least 6 characters long.';
   }
   if (normalized.includes('profile could not be saved')) {
-    return 'Your account was created, but its profile could not be saved. Check the profiles table permissions in Supabase.';
+    return 'Your account was created, but its profile could not be saved. Run supabase/schema.sql in your Supabase SQL Editor, then sign in and finish your profile.';
+  }
+  if (
+    normalized.includes('profiles') ||
+    normalized.includes('row-level security') ||
+    normalized.includes('permission denied')
+  ) {
+    return 'The profile database is not set up correctly. Run supabase/schema.sql in your Supabase SQL Editor and try again.';
   }
   if (normalized.includes('invalid api key') || normalized.includes('network')) {
     return 'The app cannot connect to its account service. Check the Supabase URL and publishable key.';

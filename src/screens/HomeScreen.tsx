@@ -5,19 +5,16 @@ import { colors, fonts, radii } from '../theme';
 import { useApp } from '../state/AppContext';
 import { formatHeight } from '../utils/height';
 import HeightRing from '../components/HeightRing';
+import HeightEstimateInfo from '../components/HeightEstimateInfo';
 
 const TIP_PREVIEW =
   "A short posture reset every couple of hours can ease the compression that builds up in your spine from sitting.";
 
 export default function HomeScreen() {
-  const { unit, toggleUnit, heights, isPro, requestProGate } = useApp();
+  const { unit, toggleUnit, heights } = useApp();
   const navigation = useNavigation<any>();
 
-  const onTapHeight = (which: 'pro' | 'free' | 'actual') => {
-    if (which === 'pro') {
-      const allowed = requestProGate('pro-height');
-      if (!allowed) return;
-    }
+  const onTapHeight = () => {
     navigation.navigate('Progress');
   };
 
@@ -39,23 +36,25 @@ export default function HomeScreen() {
 
       <View style={styles.content}>
         <View style={styles.ringWrap}>
-          <HeightRing actualCm={heights.actual} freeCm={heights.free} proCm={heights.pro} />
+          <HeightRing
+            actualCm={heights.actual}
+            freeCm={heights.freeEstimate ?? heights.actual}
+            proCm={heights.proEstimate ?? heights.actual}
+          />
           <View style={styles.ringCenter} pointerEvents="box-none">
-            <Pressable onPress={() => onTapHeight('pro')} style={styles.figure}>
-              <Text style={[styles.hNum, { fontSize: 34, color: colors.gold }]}>
-                {formatHeight(heights.pro, unit)}
+            <Pressable onPress={onTapHeight} style={styles.figure}>
+              <Text style={[styles.hNum, { fontSize: 20, color: colors.gold }]}>
+                {heights.proEstimate != null ? formatHeight(heights.proEstimate, unit) : '—'}
               </Text>
-              <Text style={styles.hLabel}>
-                Pro potential {!isPro && <Text style={styles.lockChip}> PRO</Text>}
-              </Text>
+              <Text style={[styles.hLabel, styles.proLabel]}>Pro estimate</Text>
             </Pressable>
-            <Pressable onPress={() => onTapHeight('free')} style={styles.figure}>
-              <Text style={[styles.hNum, { fontSize: 22, color: colors.green }]}>
-                {formatHeight(heights.free, unit)}
+            <Pressable onPress={onTapHeight} style={styles.figure}>
+              <Text style={[styles.hNum, { fontSize: 20, color: colors.green }]}>
+                {heights.freeEstimate != null ? formatHeight(heights.freeEstimate, unit) : '—'}
               </Text>
-              <Text style={styles.hLabel}>Free potential</Text>
+              <Text style={[styles.hLabel, styles.freeLabel]}>Free estimate</Text>
             </Pressable>
-            <Pressable onPress={() => onTapHeight('actual')} style={styles.figure}>
+            <Pressable onPress={onTapHeight} style={styles.figure}>
               <Text style={[styles.hNum, { fontSize: 15, color: colors.blue }]}>
                 {formatHeight(heights.actual, unit)}
               </Text>
@@ -64,12 +63,12 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Text style={styles.hint}>Tap a height to see how it's tracked over time</Text>
+        <HeightEstimateInfo />
 
         <View style={styles.legend}>
-          <LegendItem color={colors.blue} label="Actual" />
-          <LegendItem color={colors.green} label="Free" />
-          <LegendItem color={colors.gold} label="Pro" />
+          <LegendItem color={colors.blue} label="Current" />
+          <LegendItem color={colors.gold} label="Pro estimate" />
+          <LegendItem color={colors.green} label="Free estimate" />
         </View>
 
         <Pressable style={styles.tipCard} onPress={() => navigation.navigate('Tip')}>
@@ -110,8 +109,8 @@ const styles = StyleSheet.create({
   figure: { alignItems: 'center', marginVertical: 1 },
   hNum: { fontFamily: fonts.display },
   hLabel: { fontFamily: fonts.body, fontSize: 10.5, color: colors.muted2, marginTop: 1 },
-  lockChip: { fontSize: 9, color: colors.gold, fontFamily: fonts.bodyBold },
-  hint: { fontFamily: fonts.body, fontSize: 12, color: colors.muted2, marginTop: 14, textAlign: 'center' },
+  freeLabel: { color: colors.green },
+  proLabel: { color: colors.gold },
   legend: { flexDirection: 'row', gap: 16, marginTop: 16 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },

@@ -1,13 +1,29 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import { Unit } from '../utils/height';
-import { UserProfile, estimateHeights } from '../utils/heightEstimate';
-import { AuthUser, getProfile, signIn as signInService, signUp as signUpService } from '../services/auth';
+import {
+  FamilyHeightReference,
+  UserProfile,
+  estimateFamilyHeightReference,
+} from '../utils/heightEstimate';
+import {
+  AuthUser,
+  getProfile,
+  saveProfile as saveProfileService,
+  signIn as signInService,
+  signUp as signUpService,
+} from '../services/auth';
 import { getHeightLogs, insertHeightLog } from '../services/db';
 
 export type LogEntry = { date: string; cm: number };
-export type PaywallSource = 'pro-height' | 'mealsports' | null;
+export type PaywallSource = 'mealsports' | null;
 
-type Heights = { actual: number; free: number; pro: number };
+type Heights = {
+  actual: number;
+  freeEstimate: number | null;
+  proEstimate: number | null;
+  familyTarget: FamilyHeightReference | null;
+};
+export type SignupStage = 'calculating' | 'free-result' | 'pro-offer' | 'plans';
 
 type AppState = {
   unit: Unit;
@@ -22,7 +38,10 @@ type AppState = {
   profile: UserProfile | null;
   isOnboarded: boolean;
   completeSignUp: (email: string, password: string, profile: UserProfile) => Promise<void>;
+  completeProfile: (profile: UserProfile) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signupStage: SignupStage | null;
+  setSignupStage: (stage: SignupStage | null) => void;
 
   heights: Heights;
   log: LogEntry[];
@@ -32,14 +51,12 @@ type AppState = {
   paywallSource: PaywallSource;
   openPaywall: (source: PaywallSource) => void;
   closePaywall: () => void;
-  choosePlan: (plan: 'onetime' | 'monthly') => void;
-
   requestProGate: (source: PaywallSource) => boolean;
 };
 
 const AppContext = createContext<AppState | null>(null);
 
-const EMPTY_HEIGHTS: Heights = { actual: 0, free: 0, pro: 0 };
+const EMPTY_HEIGHTS: Heights = { actual: 0, freeEstimate: null, proEstimate: null, familyTarget: null };
 
 function formatLogDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -52,6 +69,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [heights, setHeights] = useState<Heights>(EMPTY_HEIGHTS);
+  const [signupStage, setSignupStage] = useState<SignupStage | null>(null);
 
   // Starts empty — the ring's "current" figure comes from the profile the
   // user enters at sign-up; the log is a separate history they build up
@@ -64,20 +82,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const toggleUnit = () => setUnit((u) => (u === 'ft' ? 'cm' : 'ft'));
 
+  const makeHeights = (actual: number, familyTarget: FamilyHeightReference | null): Heights => {
+    if (!familyTarget) {
+      return { actual, freeEstimate: null, proEstimate: null, familyTarget };
+    }
+
+    const proEstimate = Math.max(actual, familyTarget.upperReferenceCm);
+    const freeEstimate = (actual + proEstimate) / 2;
+    return { actual, freeEstimate, proEstimate, familyTarget };
+  };
+
   const completeSignUp = async (email: string, password: string, newProfile: UserProfile) => {
     const result = await signUpService(email, password, newProfile);
     setUser(result.user);
     setProfile(result.profile);
-    const estimates = estimateHeights(result.profile);
-    setHeights({ actual: result.profile.currentHeightCm, ...estimates });
+    setHeights(makeHeights(result.profile.currentHeightCm, estimateFamilyHeightReference(result.profile)));
+    setSignupStage('calculating');
     // Intentionally NOT auto-adding a log entry here — log starts empty
     // and only grows when the user explicitly logs a measurement.
+  };
+
+  const completeProfile = async (newProfile: UserProfile) => {
+    if (!user) throw new Error('Sign in before completing your profile.');
+    await saveProfileService(user.id, newProfile);
+    setProfile(newProfile);
+    const actual = heights.actual || newProfile.currentHeightCm;
+    setHeights(makeHeights(actual, estimateFamilyHeightReference(newProfile)));
   };
 
   const signIn = async (email: string, password: string) => {
     const signedInUser = await signInService(email, password);
     const signedInProfile = await getProfile(signedInUser.id);
     setUser(signedInUser);
+
+    if (!signedInProfile) {
+      setProfile(null);
+      setHeights(EMPTY_HEIGHTS);
+      setLog([]);
+      return;
+    }
+
     setProfile(signedInProfile);
 
     // Pull existing log history back from the database so a returning
@@ -89,18 +133,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
     setLog(formattedLogs);
 
-    const estimates = estimateHeights(signedInProfile);
-    // "Actual" height prefers the most recent logged entry if one exists,
-    // falling back to the profile's stored height otherwise (e.g. a user
-    // who signed up but has never logged a measurement since).
     const actual =
       formattedLogs.length > 0 ? formattedLogs[formattedLogs.length - 1].cm : signedInProfile.currentHeightCm;
-    setHeights({ actual, ...estimates });
+    setHeights(makeHeights(actual, estimateFamilyHeightReference(signedInProfile)));
   };
 
   const addLogEntry = (cm: number, date: string) => {
     setLog((prev) => [...prev, { date, cm }]);
-    setHeights((prev) => ({ ...prev, actual: cm }));
+    setHeights((prev) => {
+      const proEstimate = prev.familyTarget
+        ? Math.max(cm, prev.familyTarget.upperReferenceCm)
+        : null;
+      return {
+        ...prev,
+        actual: cm,
+        freeEstimate: proEstimate == null ? null : (cm + proEstimate) / 2,
+        proEstimate,
+      };
+    });
 
     // Write-through to the database. Updates the UI immediately (above)
     // rather than waiting on the network — if this fails, the entry still
@@ -122,13 +172,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPaywallSource(null);
   };
 
-  const choosePlan = (_plan: 'onetime' | 'monthly') => {
-    // TODO: wire this up to a real purchase flow before shipping.
-    // See src/services/purchases.ts for integration notes.
-    setIsPro(true);
-    closePaywall();
-  };
-
   const requestProGate = (source: PaywallSource) => {
     if (isPro) return true;
     openPaywall(source);
@@ -144,9 +187,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsPro,
       user,
       profile,
-      isOnboarded: !!profile,
+      isOnboarded: Boolean(
+        profile && profile.motherHeightCm != null && profile.fatherHeightCm != null
+      ),
       completeSignUp,
+      completeProfile,
       signIn,
+      signupStage,
+      setSignupStage,
       heights,
       log,
       addLogEntry,
@@ -154,10 +202,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       paywallSource,
       openPaywall,
       closePaywall,
-      choosePlan,
       requestProGate,
     }),
-    [unit, isPro, user, profile, heights, log, paywallVisible, paywallSource]
+    [
+      unit,
+      isPro,
+      user,
+      profile,
+      heights,
+      log,
+      paywallVisible,
+      paywallSource,
+      completeProfile,
+      signupStage,
+    ]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

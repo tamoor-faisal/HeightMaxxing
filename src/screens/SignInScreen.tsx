@@ -20,8 +20,15 @@ export default function SignInScreen({ onBack }: { onBack: () => void }) {
     setError(null);
     try {
       await signIn(email.trim(), password);
-    } catch {
-      setError('We could not sign you in. Check your email and password and try again.');
+    } catch (e) {
+      const message = e instanceof Error ? e.message.toLowerCase() : '';
+      setError(
+        message.includes('email not confirmed')
+          ? 'Please confirm your email address using the link Supabase sent you, then sign in again.'
+          : message.includes('mother_height_cm') || message.includes('father_height_cm')
+            ? 'The Supabase database needs the latest profile fields. Run the updated supabase/schema.sql script, then try again.'
+            : 'We could not sign you in. Check your email and password and try again.'
+      );
     } finally {
       setSubmitting(false);
     }
