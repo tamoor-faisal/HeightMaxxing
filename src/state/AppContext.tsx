@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from 'react';
 import { Unit } from '../utils/height';
 import { UserProfile, estimateHeights } from '../utils/heightEstimate';
 import { AuthUser, getProfile, signIn as signInService, signUp as signUpService } from '../services/auth';
-import { insertHeightLog } from '../services/db';
+import { getHeightLogs, insertHeightLog } from '../services/db';
 
 export type LogEntry = { date: string; cm: number };
 export type PaywallSource = 'pro-height' | 'mealsports' | null;
@@ -41,6 +41,10 @@ const AppContext = createContext<AppState | null>(null);
 
 const EMPTY_HEIGHTS: Heights = { actual: 0, free: 0, pro: 0 };
 
+function formatLogDate(isoString: string): string {
+  return new Date(isoString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [unit, setUnit] = useState<Unit>('ft');
   const [isPro, setIsPro] = useState(false);
@@ -51,7 +55,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Starts empty — the ring's "current" figure comes from the profile the
   // user enters at sign-up; the log is a separate history they build up
-  // over time by tapping "Log a new measurement".
+  // over time by tapping "Log a new measurement". On sign-in, both get
+  // populated from Supabase instead (see signIn below).
   const [log, setLog] = useState<LogEntry[]>([]);
 
   const [paywallVisible, setPaywallVisible] = useState(false);
@@ -74,11 +79,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const signedInProfile = await getProfile(signedInUser.id);
     setUser(signedInUser);
     setProfile(signedInProfile);
+
+    // Pull existing log history back from the database so a returning
+    // user sees their real history, not an empty chart.
+    const dbLogs = await getHeightLogs(signedInUser.id);
+    const formattedLogs: LogEntry[] = dbLogs.map((entry) => ({
+      cm: entry.cm,
+      date: formatLogDate(entry.loggedAt),
+    }));
+    setLog(formattedLogs);
+
     const estimates = estimateHeights(signedInProfile);
-    setHeights({ actual: signedInProfile.currentHeightCm, ...estimates });
+    // "Actual" height prefers the most recent logged entry if one exists,
+    // falling back to the profile's stored height otherwise (e.g. a user
+    // who signed up but has never logged a measurement since).
+    const actual =
+      formattedLogs.length > 0 ? formattedLogs[formattedLogs.length - 1].cm : signedInProfile.currentHeightCm;
+    setHeights({ actual, ...estimates });
   };
 
-   const addLogEntry = (cm: number, date: string) => {
+  const addLogEntry = (cm: number, date: string) => {
     setLog((prev) => [...prev, { date, cm }]);
     setHeights((prev) => ({ ...prev, actual: cm }));
 
